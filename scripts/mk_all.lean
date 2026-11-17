@@ -9,6 +9,9 @@ import Mathlib.Util.GetAllModules
 
 -- The `style.header` linter flags `import Lake.CLI.Main` as a potential performance issue.
 set_option linter.style.header false
+
+-- TODO: temporary copy. delete in favour of `mk-all.lean` after the `mk-all` rename is merged
+
 /-!
 # Script to create a file importing all files from a folder
 

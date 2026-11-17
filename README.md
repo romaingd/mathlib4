@@ -62,7 +62,7 @@ feasibility of your project.
 * If you added a new file, run the following command to update `Mathlib.lean`
 
   ```shell
-  lake exe mk_all
+  lake exe mk-all
   ```
 
 ### Guidelines

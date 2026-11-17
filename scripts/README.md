@@ -234,9 +234,10 @@ to module `Foo.Bar` (no `srcDir` indirection).
   Runs `lake build` on one or more targets until `lake build --no-build` succeeds. Used in the main build workflows.
 - `lake-build-wrapper.py`
   A wrapper script for `lake build` which collapses normal build into log groups and saves a build summary JSON file. See file for usage.
-- `mk_all.lean`
-  run via `lake exe mk_all`, regenerates the import-only files
+- `mk-all.lean`
+  run via `lake exe mk-all`, regenerates the import-only files
   `Mathlib.lean`, `Mathlib/Tactic.lean`, `Archive.lean` and `Counterexamples.lean`
+  `mk_all.lean` is a temporary copy of `mk-all.lean` and will be deleted soon.
 - `lint-style.lean`: style linters written in Lean. Run via `lake exe lint-style`.
 - `check-title-labels.lean` verifies that a (non-WIP, non-draft) PR has a well-formed title.
   In the future, it may also check that a feature PR has a topic label.
@@ -265,7 +266,7 @@ to module `Foo.Bar` (no `srcDir` indirection).
   `x scripts/auto_commit.sh <command>` enables a rebase workflow: during interactive rebase,
   you can convert `pick abc # x scripts/auto_commit.sh cmd` to `x scripts/auto_commit.sh cmd`
   (by deleting the "pick abc # " prefix), and git will re-run the command via exec.
-  Example: `scripts/auto_commit.sh lake exe mk_all`
+  Example: `scripts/auto_commit.sh lake exe mk-all`
 - `parse_shake_output.py` parses the captured output of `lake shake` and reports the number of
   files changed and imports added/removed. Used by the `shake` workflow to populate the PR body
   and Zulip notification. Counts are printed to stdout and, if a second argument is given

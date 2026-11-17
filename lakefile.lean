@@ -150,7 +150,14 @@ lean_exe «check-yaml» where
   srcDir := "scripts"
   supportInterpreter := true
 
-/-- `lake exe mk_all` constructs the files containing all imports for a project. -/
+/-- `lake exe mk-all` constructs the files containing all imports for a project. -/
+lean_exe «mk-all» where
+  -- TODO: modulise this script, so remove the need for this option
+  allowNonModules := true
+  srcDir := "scripts"
+  supportInterpreter := true
+
+-- TODO: provided for backwards compatibility; delete once all users were migrated to `mk-all`
 lean_exe mk_all where
   -- TODO: modulise this script, so remove the need for this option
   allowNonModules := true

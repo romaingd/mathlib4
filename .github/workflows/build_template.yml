@@ -167,11 +167,11 @@ jobs:
       - name: update {Mathlib, Tactic, Counterexamples, Archive}.lean
         id: mk_all
         continue-on-error: true # Allow workflow to continue, outcome checked later
-        # This runs `mk_all --check` from the `pr-branch` inside landrun
+        # This runs `mk-all --check` from the `pr-branch` inside landrun
         run: |
           cd pr-branch
-          echo "Running mk_all --check (from pr-branch)..."
-          lake exe mk_all --check
+          echo "Running mk-all --check (from pr-branch)..."
+          lake exe mk-all --check
 
       - name: begin gh-problem-match-wrap for build step
         uses: leanprover-community/gh-problem-matcher-wrap@65a654fcdf7b64ff7633bc7a558f7b46d59a27bf # 2026-06-25
@@ -419,10 +419,10 @@ jobs:
         if: ${{ always() && steps.mk_all.outcome != 'skipped' }}
         run: |
           if [[ "${{ steps.mk_all.outcome }}" != "success" ]]; then
-            echo "Please run 'lake exe mk_all' to regenerate the import all files"
+            echo "Please run 'lake exe mk-all' to regenerate the import all files"
             exit 1
           else
-            echo "'mk_all --check' passed successfully."
+            echo "'mk-all --check' passed successfully."
           fi
 
   test_lint:

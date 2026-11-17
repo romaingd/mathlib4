@@ -58,7 +58,7 @@ jobs:
           # In the order they ran, separated so that they can be pasted into a shell as they are:
           # `mk_all` and `lint-bib.sh` exit non-zero when they change something, so not with `&&`.
           cmds=''
-          if "${mk_all}"; then cmds+="${cmds:+; }\`lake exe mk_all\`"; fi
+          if "${mk_all}"; then cmds+="${cmds:+; }\`lake exe mk-all\`"; fi
           if "${lint_style}"; then cmds+="${cmds:+; }\`lake exe lint-style --fix\`"; fi
           if "${lint_bib}"; then cmds+="${cmds:+; }\`./scripts/lint-bib.sh\`"; fi
           printf 'cmds=%s\n' "${cmds}" >> "${GITHUB_OUTPUT}"
