@@ -456,7 +456,7 @@ jobs:
       lint-outcome: ${{ steps.lint.outcome }}
       test-outcome: ${{ steps.test.outcome }}
       test-cache-staging-has-files: ${{ steps.test_cache_staging.outputs.has_files }}
-    # `RUN_TESTS` is true on a clean build: `build` itself, the `mk_all` check, and
+    # `RUN_TESTS` is true on a clean build: `build` itself, the `mk-all` check, and
     # the archive, counterexamples, and Wanted builds all succeeded. It reads these
     # from the outputs of `build`. It gates `test`, the problem-matcher wrap of
     # `test`, and the MathlibTest cache fetch.

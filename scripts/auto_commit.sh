@@ -11,7 +11,7 @@
 # (by deleting the "pick abc123 " prefix), and git will re-run the command via exec.
 #
 # Examples:
-#   scripts/auto_commit.sh lake exe mk_all
+#   scripts/auto_commit.sh lake exe mk-all
 #   scripts/auto_commit.sh ./scripts/fix_unused.py
 #
 # Exit codes:
@@ -44,7 +44,7 @@ usage() {
   echo "  x scripts/auto_commit.sh <command>"
   echo ""
   echo "Examples:"
-  echo "  $0 lake exe mk_all"
+  echo "  $0 lake exe mk-all"
   echo "  $0 ./scripts/fix_unused.py"
   exit 2
 }

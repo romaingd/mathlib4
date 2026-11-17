@@ -3,7 +3,7 @@ on:
 
 name: lint and autofix
 
-# The job builds and runs code from the PR (`lake exe lint-style`, `lake exe mk_all`,
+# The job builds and runs code from the PR (`lake exe lint-style`, `lake exe mk-all`,
 # `scripts/lint-bib.sh`), so its token is read-only. Pushing the fixes needs nothing more: the
 # lite action hands them over as an artifact, and the pre-commit.ci lite app commits them.
 permissions:
@@ -27,7 +27,7 @@ jobs:
     # cache: see the `no-actions-cache` job in `actionlint.yml`.
     cache-mode: none
     steps:
-      # Applies `lake exe mk_all`, `lake exe lint-style --fix` and `scripts/lint-bib.sh`, and
+      # Applies `lake exe mk-all`, `lake exe lint-style --fix` and `scripts/lint-bib.sh`, and
       # leaves the results in the working tree for the last step to pick up.
       - uses: leanprover-community/lint-style-action@a5e3ef275cc682ba79c1f8ba34ae2ade5d8d2101 # 2026-10-28
         with:
@@ -35,7 +35,7 @@ jobs:
           lint-bib-file: true
 
       # Works out which of the action's fixers changed something, for the commit message. They
-      # all run in the one step above, but each writes its own files: `mk_all` the library root
+      # all run in the one step above, but each writes its own files: `mk-all` the library root
       # files, `lint-bib.sh` only `docs/references.bib`, and `lint-style --fix` the `Mathlib`
       # modules. `git diff HEAD` sees exactly what the lite action will commit: changes to tracked
       # files, and not new ones. This runs even if the action failed part way, because the lite
@@ -56,7 +56,7 @@ jobs:
             esac
           done <<< "$(git diff --name-only HEAD)"
           # In the order they ran, separated so that they can be pasted into a shell as they are:
-          # `mk_all` and `lint-bib.sh` exit non-zero when they change something, so not with `&&`.
+          # `mk-all` and `lint-bib.sh` exit non-zero when they change something, so not with `&&`.
           cmds=''
           if "${mk_all}"; then cmds+="${cmds:+; }\`lake exe mk-all\`"; fi
           if "${lint_style}"; then cmds+="${cmds:+; }\`lake exe lint-style --fix\`"; fi
@@ -67,7 +67,7 @@ jobs:
       # `lake exe lint-style` only walks the Lean modules reachable from `Mathlib.lean`, and its
       # linter list has no end-of-file or line-ending check, so the pre-commit hooks still carry
       # `scripts/*.py`, `.github/**`, `*.md` and the trailing-newline/CRLF fixes everywhere.
-      # They run after the Lean fixers so they also normalise whatever `mk_all` just wrote.
+      # They run after the Lean fixers so they also normalise whatever `mk-all` just wrote.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: 3.x

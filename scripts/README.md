@@ -237,7 +237,6 @@ to module `Foo.Bar` (no `srcDir` indirection).
 - `mk-all.lean`
   run via `lake exe mk-all`, regenerates the import-only files
   `Mathlib.lean`, `Mathlib/Tactic.lean`, `Archive.lean` and `Counterexamples.lean`
-  `mk_all.lean` is a temporary copy of `mk-all.lean` and will be deleted soon.
 - `lint-style.lean`: style linters written in Lean. Run via `lake exe lint-style`.
 - `check-title-labels.lean` verifies that a (non-WIP, non-draft) PR has a well-formed title.
   In the future, it may also check that a feature PR has a topic label.
