@@ -309,11 +309,11 @@ def eraseUsedTactics (exceptions : Std.HashSet SyntaxNodeKind)
       | `Batteries.Tactic.seq_focus =>
         -- The compound sequence tactic is not linted directly:
         -- its sub-tactics are linted individually instead.
-        -- Moreover, a `skip` between the brackets is never linted:
-        -- it is a common way of padding the list of tactics to match the
-        -- number of goals.
-        return (ranges.erase r).filter fun r' (stx', _) =>
-          !((r.start ≤ r'.start && r'.stop ≤ r.stop) && stx'.getKind == ``Lean.Parser.Tactic.skip)
+        -- Moreover, a `skip` between the brackets is never linted, since it is
+        -- a common way of padding the list of tactics to match the number of goals.
+        let inBrackets r' : Bool := r.start ≤ r'.start && r'.stop ≤ r.stop
+        return (ranges.erase r).filter fun r' v =>
+          !(inBrackets r' && v.1.getKind == ``Lean.Parser.Tactic.skip)
       | `Mathlib.Tactic.«tacticSwap_var__,,» =>
         -- `swap_var` is used if it changes the username of a free variable.
         if getNames i.mctxBefore == getNames i.mctxAfter then
