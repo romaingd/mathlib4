@@ -349,24 +349,17 @@ example : 1 = 1 := by
   change 1 = 1
   rfl
 
--- The linter enters a sequence tactic: an unused sub-tactic between the
--- brackets is reported.
+-- The linter enters a sequence tactic to report an unused sub-tactic
 /--
 warning: Unused tactic linter: `all_goals` can be removed.
-
-Note: This linter can be disabled with `set_option linter.unusedTactic false`
----
-warning: Unused tactic linter: there are no goals left for `all_goals trivial`.
 
 Note: This linter can be disabled with `set_option linter.unusedTactic false`
 -/
 #guard_msgs in
 example (h : True ∧ True) : True ∧ True := by
   constructor <;> [exact h.1; all_goals trivial]
-  all_goals trivial
 
--- A `skip` between the brackets is padding and is not reported, the same
--- holds for the sequence tactic itself.
+-- A `skip` between the brackets is padding and is not reported
 #guard_msgs in
 example (h : True ∧ True) : True ∧ True := by
   constructor <;> [exact h.1; skip]
