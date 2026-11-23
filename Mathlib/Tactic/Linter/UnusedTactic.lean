@@ -39,22 +39,18 @@ Possible reason for whitelisting are
   If there are no goals, then these could in principle not be redundant,
   but we lint against such cases as well.
   We also warn if `any_goals` can be replaced with `all_goals`, or with `on_goal n =>`.
+- `t <;> [t1, t2, ...]`: each `ti` is linted individually.
+  The compound tactic itself is not linted, since the linter instead relies on checking `t`
+  and each `ti`.
+  Moreover, a `skip` appearing between the brackets is never reported as unused:
+  `skip` is a common way of padding the list of tactics to match the number of goals.
 
 ## Notable exclusions
-
-* The linter does not enter a "sequence tactic": upon finding `tac <;> [tac1, tac2, ...]`
-  the linter assumes that the tactic is doing something and does not recurse into each
-  `tac1, tac2, ...`.
-  This is just for lack of an implementation: it may not be hard to do this.
 
 * The tactic does not check the discharger for `linear_combination`,
   but checks `linear_combination` itself.
   The main reason is that `skip` is a common discharger tactic and the linter would
   then always fail whenever the user explicitly chose to pass `skip` as a discharger tactic.
-
-## TODO
-
-* The linter seems to be silenced by `set_option ... in`: maybe it should enter `in`s?
 
 ## Implementation notes
 
@@ -203,7 +199,6 @@ initialize ignoreTacticKindsRef : IO.Ref NameHashSet ←
     ``Lean.Parser.Command.mixfix,
     ``Lean.Parser.Tactic.discharger,
     ``Lean.Parser.Command.registerTryTactic,
-    `Batteries.Tactic.seq_focus,
     `Mathlib.Tactic.Hint.registerHintStx,
     `Mathlib.Tactic.LinearCombination.linearCombination,
     `Aesop.Frontend.Parser.addRules,
@@ -232,12 +227,15 @@ public def addIgnoreTacticKind (kind : SyntaxNodeKind) : BaseIO Unit :=
 This includes `<;>` but excludes all other tactics whose syntax is atomic, such as `;`.
 -/
 partial def getTactics (ignoreTacticKinds : NameHashSet)
-    (tactics convs : Parser.SyntaxNodeKindSet) (stx : Syntax) :
+    (tactics convs : Parser.SyntaxNodeKindSet) (stx : Syntax)
+    (inSeqFocus inSeqFocusNull : Bool := false) :
     StateRefT (Std.HashMap Syntax.Range (Syntax × Option MessageData)) BaseIO Unit := do
   if let .node _ k args := stx then
+    let skipPadding := (inSeqFocus || inSeqFocusNull) && k == ``Lean.Parser.Tactic.skip
     if tactics.contains k || convs.contains k then
-      if let some r := stx.getRange? true then
-        modify (·.insert r (stx, none))
+      if !skipPadding then
+        if let some r := stx.getRange? true then
+          modify (·.insert r (stx, none))
       -- The `<;>` syntax is an atom, so to add it we special case it.
       if k == ``Lean.Parser.Tactic.«tactic_<;>_» || k == ``Lean.Parser.Tactic.Conv.«conv_<;>_» then
         if let some arg := args[1]? then
@@ -247,10 +245,13 @@ partial def getTactics (ignoreTacticKinds : NameHashSet)
       -- Instead of writing `args.forM getTactics`,
       -- we separate the last `getTactics` call,
       -- so that this function uses tail recursion.
+      let enterSeqFocus := k == `Batteries.Tactic.seq_focus
+      let enterSeqFocusNull := inSeqFocus && k == .str .anonymous "null"
       if h : args.size ≠ 0 then
         let last := args.size - 1
-        args.forM (stop := last) (getTactics ignoreTacticKinds tactics convs)
-        getTactics ignoreTacticKinds tactics convs args[last]
+        args.forM (stop := last) fun arg =>
+          getTactics ignoreTacticKinds tactics convs arg enterSeqFocus enterSeqFocusNull
+        getTactics ignoreTacticKinds tactics convs args[last] enterSeqFocus enterSeqFocusNull
 
 /-- `getNames mctx` extracts the names of all the local declarations implied by the
 `MetavarContext` `mctx`. -/
@@ -311,6 +312,10 @@ def eraseUsedTactics (exceptions : Std.HashSet SyntaxNodeKind)
         else if let [goal] := touched then
           let n := i.goalsBefore.idxOf goal + 1
           return withMsg m!"`any_goals` can be replaced with `on_goal {n} =>`"
+      | `Batteries.Tactic.seq_focus =>
+        -- The compound sequence tactic is not linted directly:
+        -- its sub-tactics are linted individually instead.
+        return ranges.erase r
       | `Mathlib.Tactic.«tacticSwap_var__,,» =>
         -- `swap_var` is used if it changes the username of a free variable.
         if getNames i.mctxBefore == getNames i.mctxAfter then

@@ -1,5 +1,6 @@
 module
 import Batteries.Tactic.PermuteGoals
+import Batteries.Tactic.SeqFocus
 import Mathlib.Tactic.Linter.UnusedTactic
 import Mathlib.Tactic.AdaptationNote
 
@@ -333,3 +334,42 @@ Note: This linter can be disabled with `set_option linter.unusedTactic false`
 #guard_msgs in doNotEmitWarning congr
 
 end ignore_tactic_kind
+
+section sequence_tactic
+
+-- The linter is not silenced by `set_option ... in`.
+/--
+warning: Unused tactic linter: `change 1 = 1` does not change the goal.
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+-/
+#guard_msgs in
+set_option maxHeartbeats 1000000 in
+example : 1 = 1 := by
+  change 1 = 1
+  rfl
+
+-- The linter enters a sequence tactic: an unused sub-tactic between the
+-- brackets is reported.
+/--
+warning: Unused tactic linter: `all_goals` can be removed.
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+---
+warning: Unused tactic linter: there are no goals left for `all_goals trivial`.
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+-/
+#guard_msgs in
+example (h : True ∧ True) : True ∧ True := by
+  constructor <;> [exact h.1; all_goals trivial]
+  all_goals trivial
+
+-- A `skip` between the brackets is padding and is not reported, the same
+-- holds for the sequence tactic itself.
+#guard_msgs in
+example (h : True ∧ True) : True ∧ True := by
+  constructor <;> [exact h.1; skip]
+  exact h.2
+
+end sequence_tactic
