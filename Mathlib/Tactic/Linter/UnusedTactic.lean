@@ -227,15 +227,12 @@ public def addIgnoreTacticKind (kind : SyntaxNodeKind) : BaseIO Unit :=
 This includes `<;>` but excludes all other tactics whose syntax is atomic, such as `;`.
 -/
 partial def getTactics (ignoreTacticKinds : NameHashSet)
-    (tactics convs : Parser.SyntaxNodeKindSet) (stx : Syntax)
-    (inSeqFocus inSeqFocusNull : Bool := false) :
+    (tactics convs : Parser.SyntaxNodeKindSet) (stx : Syntax) :
     StateRefT (Std.HashMap Syntax.Range (Syntax × Option MessageData)) BaseIO Unit := do
   if let .node _ k args := stx then
-    let skipPadding := (inSeqFocus || inSeqFocusNull) && k == ``Lean.Parser.Tactic.skip
     if tactics.contains k || convs.contains k then
-      if !skipPadding then
-        if let some r := stx.getRange? true then
-          modify (·.insert r (stx, none))
+      if let some r := stx.getRange? true then
+        modify (·.insert r (stx, none))
       -- The `<;>` syntax is an atom, so to add it we special case it.
       if k == ``Lean.Parser.Tactic.«tactic_<;>_» || k == ``Lean.Parser.Tactic.Conv.«conv_<;>_» then
         if let some arg := args[1]? then
@@ -245,13 +242,10 @@ partial def getTactics (ignoreTacticKinds : NameHashSet)
       -- Instead of writing `args.forM getTactics`,
       -- we separate the last `getTactics` call,
       -- so that this function uses tail recursion.
-      let enterSeqFocus := k == `Batteries.Tactic.seq_focus
-      let enterSeqFocusNull := inSeqFocus && k == .str .anonymous "null"
       if h : args.size ≠ 0 then
         let last := args.size - 1
-        args.forM (stop := last) fun arg =>
-          getTactics ignoreTacticKinds tactics convs arg enterSeqFocus enterSeqFocusNull
-        getTactics ignoreTacticKinds tactics convs args[last] enterSeqFocus enterSeqFocusNull
+        args.forM (stop := last) (getTactics ignoreTacticKinds tactics convs)
+        getTactics ignoreTacticKinds tactics convs args[last]
 
 /-- `getNames mctx` extracts the names of all the local declarations implied by the
 `MetavarContext` `mctx`. -/
@@ -315,7 +309,11 @@ def eraseUsedTactics (exceptions : Std.HashSet SyntaxNodeKind)
       | `Batteries.Tactic.seq_focus =>
         -- The compound sequence tactic is not linted directly:
         -- its sub-tactics are linted individually instead.
-        return ranges.erase r
+        -- Moreover, a `skip` between the brackets is never linted:
+        -- it is a common way of padding the list of tactics to match the
+        -- number of goals.
+        return (ranges.erase r).filter fun r' (stx', _) =>
+          !((r.start ≤ r'.start && r'.stop ≤ r.stop) && stx'.getKind == ``Lean.Parser.Tactic.skip)
       | `Mathlib.Tactic.«tacticSwap_var__,,» =>
         -- `swap_var` is used if it changes the username of a free variable.
         if getNames i.mctxBefore == getNames i.mctxAfter then
