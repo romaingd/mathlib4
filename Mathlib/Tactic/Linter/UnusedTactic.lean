@@ -40,10 +40,8 @@ Possible reason for whitelisting are
   but we lint against such cases as well.
   We also warn if `any_goals` can be replaced with `all_goals`, or with `on_goal n =>`.
 - `t <;> [t1, t2, ...]`: each `ti` is linted individually.
-  The compound tactic itself is not linted, since the linter instead relies on checking `t`
-  and each `ti`.
-  Moreover, a `skip` appearing between the brackets is never reported as unused:
-  `skip` is a common way of padding the list of tactics to match the number of goals.
+  A `skip` appearing between the brackets is never reported as unused: `skip` is a
+  common way of padding the list of tactics to match the number of goals.
 
 ## Notable exclusions
 
@@ -307,10 +305,8 @@ def eraseUsedTactics (exceptions : Std.HashSet SyntaxNodeKind)
           let n := i.goalsBefore.idxOf goal + 1
           return withMsg m!"`any_goals` can be replaced with `on_goal {n} =>`"
       | `Batteries.Tactic.seq_focus =>
-        -- The compound sequence tactic is not linted directly:
-        -- its sub-tactics are linted individually instead.
-        -- Moreover, a `skip` between the brackets is never linted, since it is
-        -- a common way of padding the list of tactics to match the number of goals.
+        -- The subtactics are linted individually instead of `seq_focus` itself.
+        -- Padding `skip` uses stay unreported.
         let inBrackets r' : Bool := r.start ≤ r'.start && r'.stop ≤ r.stop
         return (ranges.erase r).filter fun r' v =>
           !(inBrackets r' && v.1.getKind == ``Lean.Parser.Tactic.skip)
