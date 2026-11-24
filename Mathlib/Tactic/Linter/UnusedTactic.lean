@@ -40,8 +40,7 @@ Possible reason for whitelisting are
   but we lint against such cases as well.
   We also warn if `any_goals` can be replaced with `all_goals`, or with `on_goal n =>`.
 - `t <;> [t1, t2, ...]`: each `ti` is linted individually.
-  A `skip` appearing between the brackets is never reported as unused: `skip` is a
-  common way of padding the list of tactics to match the number of goals.
+  A padding `skip` (to match the number of goals) is never reported as unused.
 
 ## Notable exclusions
 
