@@ -71,6 +71,49 @@ public register_option linter.unusedTactic : Bool := {
 
 namespace UnusedTactic
 
+/-!
+### Shared infrastructure
+
+Both the tactics that are allowed to be unused and the syntax kinds whose tactic subterms are
+ignored live in a `SimpleScopedEnvExtension` whose entries are syntax kinds.
+The following helpers define and extend such extensions, and are shared between the
+`allow_unused_tactic` and the `allow_unused_subtactics_inside` commands.
+-/
+
+/--
+`mkSyntaxKindsExt name initial` registers a `SimpleScopedEnvExtension` called `name`, whose
+state is the set of syntax kinds `initial`, and which can be extended by inserting further
+syntax kinds.
+-/
+private def mkSyntaxKindsExt (name : Name) (initial : NameHashSet) :
+    IO (SimpleScopedEnvExtension Name NameHashSet) :=
+  registerSimpleScopedEnvExtension {
+    name := name
+    initial := initial
+    addEntry := .insert
+  }
+
+/--
+Implementation shared by the `allow_unused_tactic` and `allow_unused_subtactics_inside`
+commands: resolve each identifier in `ids` as a constant, then add them as entries to the
+environment extension `ext`, with the given attribute kind.
+The command name `cmdName` is used for recording indirect uses of imported constants.
+-/
+private def allowSyntaxKinds (ext : SimpleScopedEnvExtension Name NameHashSet)
+    (cmdName : String) (attrKind : Syntax) (ids : Array Ident) : Command.CommandElabM Unit := do
+  let ids ← Command.liftCoreM do ids.mapM fun id ↦ do
+    try
+      realizeGlobalConstNoOverload id
+    catch e =>
+      throwErrorAt id m!"{e.toMessageData}\n\
+        The command `#show_kind {id}` may help to find the correct `SyntaxNodeKind`."
+  let attrKind ← liftMacroM <| toAttributeKind attrKind
+  for id in ids do
+    ext.add id attrKind
+    if attrKind != .local then
+      if (← getEnv).isImportedConst id then
+        recordIndirectModUse cmdName id
+
 /--
 `Parser`s/tactics allowed to not change the tactic state.
 This can be increased dynamically, using `allow_unused_tactic` or `local allow_unused_tactic`.
@@ -103,12 +146,8 @@ def initialAllowedUnusedTactics : Std.HashSet SyntaxNodeKind :=
 Defines the `allowedUnusedTacticExt` extension for adding a `HashSet` of `allowedUnusedTactic`s
 to the environment.
 -/
-initialize allowedUnusedTacticExt :
-    SimpleScopedEnvExtension SyntaxNodeKind (Std.HashSet SyntaxNodeKind) ←
-  registerSimpleScopedEnvExtension {
-    initial := initialAllowedUnusedTactics
-    addEntry := .insert
-  }
+initialize allowedUnusedTacticExt : SimpleScopedEnvExtension Name NameHashSet ←
+  mkSyntaxKindsExt `Mathlib.Linter.UnusedTactic.allowedUnusedTacticExt initialAllowedUnusedTactics
 
 /--
 `addAllowedUnusedTactic stxNodes` takes as input a `HashSet` of `SyntaxNodeKind`s and extends the
@@ -143,19 +182,8 @@ This change is global and persistent across imports. For a file-local or scoped 
 The command `#show_kind tac` may help to find the `SyntaxNodeKind`.
 -/
 elab (name := allowUnusedTactic) attrKind:attrKind "allow_unused_tactic"
-    ppSpace colGt ids:ident* : command => do
-  let ids ← Command.liftCoreM do ids.mapM fun id ↦ do
-    try
-      realizeGlobalConstNoOverload id
-    catch e =>
-      throwErrorAt id m!"{e.toMessageData}\n\
-        The command `#show_kind {id}` may help to find the correct `SyntaxNodeKind`."
-  let attrKind ← liftMacroM <| toAttributeKind attrKind
-  for id in ids do
-    allowedUnusedTacticExt.add id attrKind
-    if attrKind != .local then
-      if (← getEnv).isImportedConst id then
-        recordIndirectModUse "allow_unused_tactic" id
+    ppSpace colGt ids:ident* : command =>
+  allowSyntaxKinds allowedUnusedTacticExt "allow_unused_tactic" attrKind ids
 
 /-- `#allow_unused_tactic` is deprecated in favour of `allow_unused_tactic` -/
 syntax (name := hashStx) "#allow_unused_tactic" ("!")? ppSpace colGt ident* : command
@@ -214,10 +242,7 @@ Defines the `ignoreTacticKindsExt` extension for adding a `HashSet` of syntax ki
 subterms are expected to contain unused tactics to the environment.
 -/
 initialize ignoreTacticKindsExt : SimpleScopedEnvExtension Name NameHashSet ←
-  registerSimpleScopedEnvExtension {
-    initial := initialIgnoreTacticKinds
-    addEntry := .insert
-  }
+  mkSyntaxKindsExt `Mathlib.Linter.UnusedTactic.ignoreTacticKindsExt initialIgnoreTacticKinds
 
 /--
 `addIgnoreTacticKind stxKind` adds the syntax kind `stxKind` to the `ignoreTacticKindsExt`
@@ -256,19 +281,8 @@ respectively.
 The command `#show_kind tac` may help to find the `SyntaxNodeKind`.
 -/
 elab (name := allowUnusedSubtacticsInside) attrKind:attrKind "allow_unused_subtactics_inside"
-    ppSpace colGt ids:ident* : command => do
-  let ids ← Command.liftCoreM do ids.mapM fun id ↦ do
-    try
-      realizeGlobalConstNoOverload id
-    catch e =>
-      throwErrorAt id m!"{e.toMessageData}\n\
-        The command `#show_kind {id}` may help to find the correct `SyntaxNodeKind`."
-  let attrKind ← liftMacroM <| toAttributeKind attrKind
-  for id in ids do
-    ignoreTacticKindsExt.add id attrKind
-    if attrKind != .local then
-      if (← getEnv).isImportedConst id then
-        recordIndirectModUse "allow_unused_subtactics_inside" id
+    ppSpace colGt ids:ident* : command =>
+  allowSyntaxKinds ignoreTacticKindsExt "allow_unused_subtactics_inside" attrKind ids
 
 /-- Is this a syntax kind that contains intentionally unused tactic subterms? -/
 public def isIgnoreTacticKind (ignoreTacticKinds : NameHashSet) (k : SyntaxNodeKind) : Bool :=

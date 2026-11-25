@@ -352,6 +352,20 @@ Note: This linter can be disabled with `set_option linter.unusedTactic false`
 -/
 #guard_msgs in doNotEmitWarningLocally congr
 
+-- the `scoped` permission is active in the namespace in which it is declared
+namespace ScopedIgnoreTacticKind
+scoped allow_unused_subtactics_inside doNotEmitWarningLocallyStx
+#guard_msgs in doNotEmitWarningLocally congr
+end ScopedIgnoreTacticKind
+
+-- ... and it is not active outside that namespace
+/--
+warning: Unused tactic linter: `congr` does not change the goal.
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+-/
+#guard_msgs in doNotEmitWarningLocally congr
+
 section sequence_tactic
 
 -- The linter is not silenced by `set_option ... in`.
