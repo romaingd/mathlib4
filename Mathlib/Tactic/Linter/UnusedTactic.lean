@@ -182,11 +182,12 @@ elab "#show_kind " stx:tactic : command =>
   logInfoAt stx m!"The `{.ofConstName ``SyntaxNodeKind}` is `{stx.raw.getKind}`."
 
 /--
-A list of blocklisted syntax kinds, which are expected to have subterms that contain
-unused tactics.
+The syntax kinds whose tactic subterms the `unusedTactic` linter ignores.
+This can be extended dynamically, using `allow_unused_subtactics_inside` or
+`local allow_unused_subtactics_inside`.
 -/
-initialize ignoreTacticKindsRef : IO.Ref NameHashSet ←
-  IO.mkRef <| .ofArray #[
+def initialIgnoreTacticKinds : NameHashSet :=
+  .ofArray #[
     `Mathlib.Tactic.Says.says,
     ``Parser.Term.binderTactic,
     ``Lean.Parser.Term.dynamicQuot,
@@ -208,17 +209,71 @@ initialize ignoreTacticKindsRef : IO.Ref NameHashSet ←
     `Mathlib.Tactic.failIfNoProgress
   ]
 
+/--
+Defines the `ignoreTacticKindsExt` extension for adding a `HashSet` of syntax kinds whose
+subterms are expected to contain unused tactics to the environment.
+-/
+initialize ignoreTacticKindsExt : SimpleScopedEnvExtension Name NameHashSet ←
+  registerSimpleScopedEnvExtension {
+    initial := initialIgnoreTacticKinds
+    addEntry := .insert
+  }
+
+/--
+`addIgnoreTacticKind stxKind` adds the syntax kind `stxKind` to the `ignoreTacticKindsExt`
+environment extension.
+The tactics contained in syntaxes of this kind will be ignored by the `unusedTactic` linter.
+
+See the `allow_unused_subtactics_inside ids` command for extending the extension with a
+user-facing command.
+-/
+public def addIgnoreTacticKind {m : Type → Type} [Monad m] [MonadEnv m]
+    (stxKind : SyntaxNodeKind) : m Unit :=
+  modifyEnv (ignoreTacticKindsExt.addEntry · stxKind)
+
+/--
+`allow_unused_subtactics_inside` takes as input a space-separated list of identifiers.
+The unused tactic linter will ignore the tactics that are contained in syntaxes of these
+`SyntaxNodeKind`s: even if these tactics do not modify the goals, there will be no warning
+emitted for them.
+This is meant for syntaxes whose contents are not controlled by the user, such as
+notation commands or tactic wrappers.
+
+Note: for this to work, these identifiers should be the `SyntaxNodeKind` of the syntaxes
+inside which the tactics are allowed to be unused, such as the name given to a `syntax`
+declaration.
+
+For instance, after declaring `syntax (name := tacCode) ...`, you can allow the tactics
+inside syntaxes of kind `tacCode` using
+```lean
+allow_unused_subtactics_inside tacCode
+```
+
+This change is global and persistent across imports. For a file-local or scoped change, use
+`local allow_unused_subtactics_inside` or `scoped allow_unused_subtactics_inside`,
+respectively.
+
+The command `#show_kind tac` may help to find the `SyntaxNodeKind`.
+-/
+elab (name := allowUnusedSubtacticsInside) attrKind:attrKind "allow_unused_subtactics_inside"
+    ppSpace colGt ids:ident* : command => do
+  let ids ← Command.liftCoreM do ids.mapM fun id ↦ do
+    try
+      realizeGlobalConstNoOverload id
+    catch e =>
+      throwErrorAt id m!"{e.toMessageData}\n\
+        The command `#show_kind {id}` may help to find the correct `SyntaxNodeKind`."
+  let attrKind ← liftMacroM <| toAttributeKind attrKind
+  for id in ids do
+    ignoreTacticKindsExt.add id attrKind
+    if attrKind != .local then
+      if (← getEnv).isImportedConst id then
+        recordIndirectModUse "allow_unused_subtactics_inside" id
+
 /-- Is this a syntax kind that contains intentionally unused tactic subterms? -/
 public def isIgnoreTacticKind (ignoreTacticKinds : NameHashSet) (k : SyntaxNodeKind) : Bool :=
   k matches .str _ "quot" ||
   ignoreTacticKinds.contains k
-
-/--
-Adds a new syntax kind whose children will be ignored by the `unusedTactic` linter.
-This should be called from an `initialize` block.
--/
-public def addIgnoreTacticKind (kind : SyntaxNodeKind) : BaseIO Unit :=
-  ignoreTacticKindsRef.modify (·.insert kind)
 
 /-- Accumulates the set of all `tactic` and `conv` syntaxes.
 This includes `<;>` but excludes all other tactics whose syntax is atomic, such as `;`.
@@ -335,7 +390,8 @@ def unusedTacticLinter : Linter where run := withSetOptionIn fun stx => do
     | return
   let trees ← getInfoTrees
   let exceptions := allowedUnusedTacticExt.getState env
-  let (_, map) ← (getTactics (← ignoreTacticKindsRef.get) tactics convs stx).run {}
+  let ignoreTacticKinds := ignoreTacticKindsExt.getState env
+  let (_, map) ← (getTactics ignoreTacticKinds tactics convs stx).run {}
   let map := eraseUsedTactics exceptions trees tactics convs map
   let unused := map.toArray
   let key (r : Lean.Syntax.Range) := (r.start.byteIdx, (-r.stop.byteIdx : Int))

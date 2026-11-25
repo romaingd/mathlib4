@@ -321,8 +321,7 @@ syntax (name := doNotEmitWarningStx) "doNotEmitWarning" tactic : command
 macro_rules
   | `(command| doNotEmitWarning $tac) => `(command| example : True := by $tac ; constructor)
 
--- `#eval` instead of `initialize` so that the effect can be tested in this file
-#eval Mathlib.Linter.UnusedTactic.addIgnoreTacticKind ``doNotEmitWarningStx
+allow_unused_subtactics_inside doNotEmitWarningStx
 
 /--
 warning: Unused tactic linter: `congr` does not change the goal.
@@ -333,7 +332,25 @@ Note: This linter can be disabled with `set_option linter.unusedTactic false`
 
 #guard_msgs in doNotEmitWarning congr
 
+syntax (name := doNotEmitWarningLocallyStx) "doNotEmitWarningLocally" tactic : command
+macro_rules
+  | `(command| doNotEmitWarningLocally $tac) =>
+      `(command| example : True := by $tac ; constructor)
+
+-- the `local` permission applies only within this `section`
+local allow_unused_subtactics_inside doNotEmitWarningLocallyStx
+
+#guard_msgs in doNotEmitWarningLocally congr
+
 end ignore_tactic_kind
+
+-- the local permission ended with the section: the warning is reported again
+/--
+warning: Unused tactic linter: `congr` does not change the goal.
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+-/
+#guard_msgs in doNotEmitWarningLocally congr
 
 section sequence_tactic
 
